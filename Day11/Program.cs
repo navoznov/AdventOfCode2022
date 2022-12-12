@@ -7,21 +7,43 @@ var monkeys = lines.Select((l, i) => new {l, GroupIndex = i / 7})
     .GroupBy(x => x.GroupIndex)
     .Select(g => g.Select(x => x.l).ToArray())
     .Select(ParseMonkey)
-    .OrderBy(m => m.Index)
-    .ToArray();
+    .OrderBy(m => m.Index);
 
-for (int i = 0; i < 20; i++)
+var worryFactor = monkeys
+    .Select(m => m.TestDivisibleByValue)
+    .Aggregate(1, (x, y) => x * y);
+Part1(monkeys.ToArray());
+Part2(monkeys.ToArray());
+
+void Part1(Monkey[] monkeys)
 {
-    MakeRound(monkeys, i + 1);
+    for (var i = 0; i < 20; i++)
+    {
+        MakeRound(monkeys, worryFactor, false);
+    }
+
+    var result = monkeys.Select(m => m.InspectedItemsCount)
+        .OrderDescending()
+        .Take(2)
+        .Aggregate(1, (x, y) => x * y);
+
+    Console.WriteLine(result);
 }
 
-var result = monkeys.Select(m => m.InspectedItemsCount)
-    .OrderDescending()
-    .Take(2)
-    .Aggregate(1, (x, y) => x * y);
+void Part2(Monkey[] monkeys)
+{
+    for (var i = 0; i < 10000; i++)
+    {
+        MakeRound(monkeys, worryFactor, true);
+    }
 
-// 2851200 - high
-Console.WriteLine(result);
+    var result = monkeys.Select(m => m.InspectedItemsCount)
+        .OrderDescending()
+        .Take(2)
+        .Aggregate(1L, (x, y) => x * y);
+
+    Console.WriteLine(result);
+}
 
 Monkey ParseMonkey(string[] lines)
 {
@@ -31,7 +53,7 @@ Monkey ParseMonkey(string[] lines)
 
     var items = lines[1].Replace("  Starting items: ", "")
         .Split(", ")
-        .Select(int.Parse)
+        .Select(long.Parse)
         .ToList();
 
     var operation = ParseOperation(lines[2]);
@@ -39,11 +61,11 @@ Monkey ParseMonkey(string[] lines)
     var trueMonkey = int.Parse(lines[4].Replace("    If true: throw to monkey ", ""));
     var falseMonkey = int.Parse(lines[5].Replace("    If false: throw to monkey ", ""));
 
-    Func<int, int> ParseOperation(string operationStr)
+    Func<long, long> ParseOperation(string operationStr)
     {
-        var (leftStr, operand, rightSre) = operationStr.Replace("  Operation: new = ", "")
+        var (_, operand, rightSre) = operationStr.Replace("  Operation: new = ", "")
             .Split(" ");
-        var isInt = int.TryParse(rightSre, out var right);
+        var isInt = long.TryParse(rightSre, out var right);
         return operand switch
         {
             "+" => old => old + (isInt ? right : old),
@@ -57,10 +79,8 @@ Monkey ParseMonkey(string[] lines)
     return new Monkey(monkey, items, operation, testDivisibleByValue, trueMonkey, falseMonkey);
 }
 
-void MakeRound(Monkey[] monkeys, int roundIndex)
+void MakeRound(Monkey[] monkeys, long worryFactor, bool isWorried)
 {
-    Console.WriteLine($"Round: {roundIndex}");
-
     foreach (var monkey in monkeys)
     {
         if (monkey.Items.Count == 0)
@@ -72,32 +92,30 @@ void MakeRound(Monkey[] monkeys, int roundIndex)
         {
             var item = monkey.Items[i];
             var worryLevel = monkey.Operation(item);
-            var correctedWorryLevel = worryLevel / 3;
-            var targetMonkeyIndex = correctedWorryLevel % monkey.TestDivisibleByValue == 0
+            if (!isWorried)
+            {
+                worryLevel /= 3;
+            }
+
+            worryLevel %= worryFactor;
+            var targetMonkeyIndex = worryLevel % monkey.TestDivisibleByValue == 0
                 ? monkey.TrueMonkey
                 : monkey.FalseMonkey;
             monkey.InspectedItemsCount++;
-            monkeys.Single(m => m.Index == targetMonkeyIndex).Items.Add(correctedWorryLevel);
+            monkeys.Single(m => m.Index == targetMonkeyIndex).Items.Add(worryLevel);
         }
 
         monkey.Items.RemoveRange(0, monkey.Items.Count);
     }
-
-    foreach (var monkey in monkeys)
-    {
-        Console.WriteLine(monkey);
-    }
-
-    Console.WriteLine();
 }
 
-record Monkey(int Index, List<int> Items, Func<int, int> Operation, int TestDivisibleByValue,
+record Monkey(int Index, List<long> Items, Func<long, long> Operation, int TestDivisibleByValue,
     int TrueMonkey, int FalseMonkey)
 {
     public int InspectedItemsCount { get; set; } = 0;
 
     public override string ToString()
     {
-        return $"Monkey {Index}: {string.Join(", ", Items)}";
+        return $"Monkey {Index}: {InspectedItemsCount}";
     }
 }
