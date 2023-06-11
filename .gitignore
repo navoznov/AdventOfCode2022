@@ -2,3 +2,5 @@
 /*/obj/
 /.idea/
 /.idea/.idea.AdventOfCode2022.dir/.idea/
+.vs/AdventOfCode2022/xs/*
+.vscode/settings.json
